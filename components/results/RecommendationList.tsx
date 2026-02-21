@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
+import { ChevronRight } from "lucide-react"
 
 interface Recommendation {
   priority: number
@@ -42,22 +43,23 @@ export function RecommendationList({ recommendations }: RecommendationListProps)
           className="p-4 rounded-2xl border border-[var(--border-dark)] bg-white shadow-[1px_1px_0px_0px_var(--accent)]"
         >
           <div className="flex items-start space-x-4">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full border-2 border-[var(--accent)] text-[var(--text-primary)] flex items-center justify-center font-bold text-lg">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full border-2 border-[var(--accent)] text-[var(--text-primary)] flex items-center justify-center font-bold text-lg font-sans">
               {rec.priority}
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-bold text-[var(--text-primary)]">
+                <h4 className="font-display font-bold text-[var(--text-primary)]">
                   {rec.title}
                 </h4>
-                <Badge variant={getEffortVariant(rec.effort)}>
+                <Badge variant={getEffortVariant(rec.effort)} className="font-sans">
                   {rec.effort}
                 </Badge>
               </div>
-              <p className="text-sm text-[var(--text-secondary)] mb-2">
-                <span className="font-medium">Action:</span> {rec.action}
+              <p className="font-sans text-sm text-[var(--text-secondary)] mb-2 flex items-start gap-1">
+                <ChevronRight size={14} className="mt-0.5 flex-shrink-0" />
+                <span><span className="font-medium">Action:</span> {rec.action}</span>
               </p>
-              <p className="text-sm text-[var(--text-muted)]">{rec.reason}</p>
+              <p className="font-sans text-sm text-[var(--text-muted)]">{rec.reason}</p>
             </div>
           </div>
         </motion.div>

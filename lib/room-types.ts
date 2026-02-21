@@ -28,6 +28,15 @@ export interface PlacedFurniture {
   y: number;
   width: number;
   height: number;
+  rotation?: number;    // degrees (0–359), default 0
+  scaleX?: number;      // size multiplier (0.5–2.0), default 1
+  scaleY?: number;      // size multiplier (0.5–2.0), default 1
+}
+
+export interface WindowItem {
+  id: string;
+  wall: Wall;
+  offset: number;   // percentage along the wall (10–90)
 }
 
 export interface CanvasState {
@@ -51,6 +60,11 @@ export interface LayoutData {
     wall: string;
     positionPercent: number;
   };
+  windows?: Array<{
+    id: string;
+    wall: string;
+    positionPercent: number;
+  }>;
   furniture: Array<{
     id: string;
     label: string;
@@ -59,6 +73,7 @@ export interface LayoutData {
     yPercent: number;
     widthPercent: number;
     heightPercent: number;
+    rotation?: number;
   }>;
 }
 

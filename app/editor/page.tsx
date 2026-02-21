@@ -7,34 +7,39 @@ import dynamic from "next/dynamic"
 import { TemplateSelector } from "@/components/editor/TemplateSelector"
 import { CompassSelector } from "@/components/editor/CompassSelector"
 import { FurnitureSidebar } from "@/components/editor/FurnitureSidebar"
+import { AnalysisOverlay } from "@/components/editor/AnalysisOverlay"
+import { AnimatedAnalyseButton } from "@/components/landing/AnimatedAnalyseButton"
 import { Button } from "@/components/ui/button"
-import { TEMPLATES, FURNITURE_ITEMS } from "@/lib/furniture-data"
-import { Template, Wall, PlacedFurniture, FurnitureItem, LayoutData } from "@/lib/room-types"
+import { TEMPLATES } from "@/lib/furniture-data"
+import { Template, Wall, PlacedFurniture, FurnitureItem, LayoutData, WindowItem } from "@/lib/room-types"
 import { useToast } from "@/components/ui/use-toast"
+import { RotateCcw, Trash2, Maximize2, Package, Plus } from "lucide-react"
 
 const RoomCanvas = dynamic(
   () => import("@/components/editor/RoomCanvas").then((mod) => ({ default: mod.RoomCanvas })),
   { ssr: false }
 )
 
-const loadingMessages = [
-  "Consulting the Bagua...",
-  "Mapping energy flows...",
-  "Preparing your analysis...",
-]
 
 export default function EditorPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [template, setTemplate] = useState<Template>(TEMPLATES[0])
-  const [northWall, setNorthWall] = useState<Wall>("top")
+  const [northWall, setNorthWall] = useState<Wall | null>(null)
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([])
-  const [doorPosition] = useState<{ wall: Wall; offset: number }>({ wall: "bottom", offset: 50 })
+  const [doorPosition, setDoorPosition] = useState<{ wall: Wall; offset: number }>({ wall: "bottom", offset: 50 })
   const [selectedFurnitureId, setSelectedFurnitureId] = useState<string | null>(null)
+  const [is3D, setIs3D] = useState(false)
+  const [windows, setWindows] = useState<WindowItem[]>([
+    { id: "window-1", wall: "top",   offset: 50 },
+    { id: "window-2", wall: "right", offset: 50 },
+  ])
+  const [selectedWindowId, setSelectedWindowId] = useState<string | null>(null)
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false)
   const [lastAddedId, setLastAddedId] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
+  const [analysisComplete, setAnalysisComplete] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState(false)
   const [layoutRect, setLayoutRect] = useState<{
     offsetX: number
     offsetY: number
@@ -43,14 +48,6 @@ export default function EditorPage() {
     scale: number
   } | null>(null)
 
-  useEffect(() => {
-    if (isAnalyzing) {
-      const interval = setInterval(() => {
-        setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length)
-      }, 1500)
-      return () => clearInterval(interval)
-    }
-  }, [isAnalyzing])
 
   const handleAddFurniture = useCallback(
     (item: FurnitureItem) => {
@@ -97,12 +94,17 @@ export default function EditorPage() {
         type: template.label,
         widthMetres: roomWidthMetres,
         heightMetres: roomHeightMetres,
-        northWall: northWall,
+        northWall: northWall ?? "top",
       },
       door: {
         wall: doorPosition.wall,
         positionPercent: doorPosition.offset,
       },
+      windows: windows.map((w) => ({
+        id: w.id,
+        wall: w.wall,
+        positionPercent: w.offset,
+      })),
       furniture: furniture.map((item) => {
         const relativeX = item.x - rect.offsetX
         const relativeY = item.y - rect.offsetY
@@ -112,23 +114,34 @@ export default function EditorPage() {
           element: item.element,
           xPercent: (relativeX / rect.roomWidth) * 100,
           yPercent: (relativeY / rect.roomHeight) * 100,
-          widthPercent: (item.width * rect.scale / rect.roomWidth) * 100,
-          heightPercent: (item.height * rect.scale / rect.roomHeight) * 100,
+          widthPercent: (item.width  * (item.scaleX ?? 1) * rect.scale / rect.roomWidth)  * 100,
+          heightPercent: (item.height * (item.scaleY ?? 1) * rect.scale / rect.roomHeight) * 100,
+          rotation: item.rotation ?? 0,
         }
       }),
     }
-  }, [template, northWall, doorPosition, furniture, layoutRect])
+  }, [template, northWall, doorPosition, windows, furniture, layoutRect])
 
   const handleAnalyze = async () => {
+    if (!northWall) {
+      toast({
+        title: "North direction not set",
+        description: "Please choose which wall faces North first.",
+        variant: "destructive",
+      })
+      return
+    }
     if (furniture.length < 3) {
       toast({
         title: "Not enough furniture",
-        description: "Please add at least 3 furniture items before analysing",
+        description: "Please add at least 3 furniture items for a proper analysis.",
         variant: "destructive",
       })
       return
     }
     setIsAnalyzing(true)
+    setAnalysisComplete(false)
+    setPendingNavigation(false)
     try {
       const layoutData = serializeLayout()
       const response = await fetch("/api/analyse", {
@@ -140,7 +153,8 @@ export default function EditorPage() {
       const data = await response.json()
       sessionStorage.setItem("fengflow_analysis", JSON.stringify(data.analysis))
       sessionStorage.setItem("fengflow_layout", JSON.stringify(layoutData))
-      router.push("/results")
+      setPendingNavigation(true)
+      setAnalysisComplete(true)
     } catch (error) {
       console.error("Analysis error:", error)
       const msg = error instanceof Error ? error.message : "Unknown error"
@@ -152,29 +166,24 @@ export default function EditorPage() {
         variant: "destructive",
       })
       setIsAnalyzing(false)
+      setAnalysisComplete(false)
     }
   }
 
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col bg-[var(--bg-primary)] overflow-hidden">
       {/* Top bar */}
-      <div className="flex-shrink-0 h-14 px-4 flex items-center justify-between bg-white border-b border-[var(--border-dark)]">
-        <p className="text-sm font-medium text-[var(--text-muted)]">Editor</p>
-        <Button
-          size="lg"
-          className="rounded-full px-6"
+      <div className="flex-shrink-0 h-[72px] px-4 flex items-center justify-between bg-white border-b border-[var(--border-dark)]">
+        <p className="font-sans text-sm font-medium text-[var(--text-muted)]">Editor</p>
+        <AnimatedAnalyseButton
+          label="Analyse with Feng Shui AI"
+          icon="sparkles"
+          size="sm"
           onClick={handleAnalyze}
-          disabled={isAnalyzing || furniture.length < 3}
-        >
-          {isAnalyzing ? (
-            <span className="flex items-center gap-2">
-              <span className="text-lg" style={{ animation: "spin 1s linear infinite" }}>☯</span>
-              <span>{loadingMessages[loadingMessageIndex]}</span>
-            </span>
-          ) : (
-            "✦ Analyse with Feng Shui AI"
-          )}
-        </Button>
+          disabled={isAnalyzing}
+          isLoading={isAnalyzing}
+          showSubLabel
+        />
       </div>
 
       {/* Mobile: message + buttons */}
@@ -199,17 +208,19 @@ export default function EditorPage() {
       {/* Desktop: three columns */}
       <div className="hidden md:flex flex-1 min-h-0">
         {/* Left panel - 280px */}
-        <aside className="w-[280px] flex-shrink-0 bg-white border-r border-[var(--border-dark)] overflow-hidden flex flex-col">
-          <div className="p-4 overflow-y-auto">
+        <aside className="w-[280px] flex-shrink-0 bg-white border-r border-[var(--border-dark)] flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 p-4 overflow-y-auto">
             <TemplateSelector selectedTemplate={template} onSelectTemplate={setTemplate} />
             <div className="my-4 border-t border-[var(--border)]" />
-            <CompassSelector northWall={northWall} onSelectNorthWall={setNorthWall} />
+            <CompassSelector northWall={northWall} onSelectNorthWall={(w) => setNorthWall(w)} />
             <div className="my-4 border-t border-[var(--border)]" />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-[var(--text-primary)]">
+            <div className="space-y-2">
+              <p className="font-sans text-sm font-medium text-[var(--text-primary)] flex items-center gap-1.5">
+                <Maximize2 size={13} className="text-[var(--text-muted)]" />
                 {(template.width / 100).toFixed(1)}m × {(template.height / 100).toFixed(1)}m
               </p>
-              <p className="text-xs text-[var(--text-muted)]">
+              <p className="font-sans text-xs text-[var(--text-muted)] flex items-center gap-1.5">
+                <Package size={13} />
                 {furniture.length} item{furniture.length !== 1 ? "s" : ""} placed
               </p>
             </div>
@@ -218,17 +229,80 @@ export default function EditorPage() {
 
         {/* Centre canvas - flex */}
         <div className="flex-1 min-w-0 flex flex-col bg-white">
+          {/* Canvas toolbar */}
+          <div className="flex-shrink-0 h-9 px-3 flex items-center gap-2 border-b border-[var(--border)]">
+            <button
+              type="button"
+              onClick={() => setFurniture((prev) => prev.slice(0, -1))}
+              disabled={furniture.length === 0}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-sans font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <RotateCcw size={12} />
+              Undo
+            </button>
+            <button
+              type="button"
+              onClick={() => setFurniture([])}
+              disabled={furniture.length === 0}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-sans font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Trash2 size={12} />
+              Clear
+            </button>
+            {/* Add Window button */}
+            <button
+              type="button"
+              onClick={() => {
+                if (windows.length >= 4) {
+                  toast({ title: "Maximum 4 windows reached", description: "Delete an existing window first." })
+                  return
+                }
+                const newId = `window-${Date.now()}`
+                setWindows((prev) => [...prev, { id: newId, wall: "top", offset: 30 + (prev.length * 20) % 60 }])
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-black text-xs font-sans font-medium text-black hover:bg-black hover:text-white transition-colors"
+            >
+              <Plus size={12} />
+              Add Window
+            </button>
+            {/* 2D / 3D toggle */}
+            <div className="ml-auto flex items-center bg-white border border-black rounded-full p-0.5">
+              <button
+                type="button"
+                onClick={() => setIs3D(false)}
+                className={`px-2.5 py-0.5 rounded-full font-sans text-[12px] font-medium transition-colors ${!is3D ? "bg-black text-white" : "text-black hover:bg-gray-100"}`}
+              >
+                2D
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIs3D(true)
+                  toast({ title: "3D Preview", description: "Switch back to 2D to move furniture." })
+                }}
+                className={`px-2.5 py-0.5 rounded-full font-sans text-[12px] font-medium transition-colors ${is3D ? "bg-black text-white" : "text-black hover:bg-gray-100"}`}
+              >
+                3D
+              </button>
+            </div>
+          </div>
           <RoomCanvas
             template={template}
             northWall={northWall}
             furniture={furniture}
+            windows={windows}
             doorPosition={doorPosition}
             selectedFurnitureId={selectedFurnitureId}
+            selectedWindowId={selectedWindowId}
             onFurnitureUpdate={setFurniture}
             onSelectFurniture={setSelectedFurnitureId}
             onRemoveFurniture={handleRemoveFurniture}
+            onWindowsChange={setWindows}
+            onSelectWindow={setSelectedWindowId}
             onLayoutReady={setLayoutRect}
+            onDoorPositionChange={setDoorPosition}
             lastAddedId={lastAddedId}
+            is3D={is3D}
           />
         </div>
 
@@ -241,6 +315,14 @@ export default function EditorPage() {
           />
         </div>
       </div>
+
+      <AnalysisOverlay
+        isVisible={isAnalyzing}
+        isComplete={analysisComplete}
+        onExitComplete={() => {
+          if (pendingNavigation) router.push("/results")
+        }}
+      />
     </div>
   )
 }

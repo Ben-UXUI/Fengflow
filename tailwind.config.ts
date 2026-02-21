@@ -26,10 +26,11 @@ const config: Config = {
       },
       fontFamily: {
         display: ["var(--font-cormorant)", "serif"],
+        serif: ["var(--font-cormorant)", "serif"],
         sans: ["var(--font-dm-sans)", "sans-serif"],
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 };
 export default config;

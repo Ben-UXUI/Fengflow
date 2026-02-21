@@ -297,11 +297,15 @@ export default function EditorPage() {
               template={template}
               northWall={northWall}
               furniture={furniture}
+              windows={[]}
               doorPosition={doorPosition}
               selectedFurnitureId={selectedFurnitureId}
+              selectedWindowId={null}
               onFurnitureUpdate={setFurniture}
               onSelectFurniture={setSelectedFurnitureId}
               onRemoveFurniture={handleRemoveFurniture}
+              onWindowsChange={() => {}}
+              onSelectWindow={() => {}}
               onLayoutReady={setLayoutRect}
               lastAddedId={lastAddedId}
             />

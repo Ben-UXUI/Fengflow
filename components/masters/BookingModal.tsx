@@ -1,25 +1,17 @@
 "use client"
 
 import { useState } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { Master } from "@/lib/furniture-data"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { X, User, Mail, Send, CheckCircle, Clock } from "lucide-react"
 
 interface BookingModalProps {
   master: Master
   open: boolean
   onOpenChange: (open: boolean) => void
 }
+
+const SESSION_LENGTHS = [30, 60, 90] as const
 
 export function BookingModal({ master, open, onOpenChange }: BookingModalProps) {
   const [sessionLength, setSessionLength] = useState<30 | 60 | 90>(60)
@@ -39,117 +31,179 @@ export function BookingModal({ master, open, onOpenChange }: BookingModalProps) 
       setName("")
       setEmail("")
       setMessage("")
+      setSessionLength(60)
     }, 3000)
   }
 
-  if (isSubmitted) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Request Sent!</DialogTitle>
-            <DialogDescription>
-              Master {master.name} will contact you within 24 hours.
-            </DialogDescription>
-          </DialogHeader>
-        </DialogContent>
-      </Dialog>
-    )
-  }
+  const inputBase =
+    "w-full h-9 px-3 font-sans text-[14px] text-black bg-white border border-[#E5E5E5] rounded-lg outline-none transition-colors focus:border-black placeholder:text-gray-400"
+  const inputWithIcon =
+    "w-full h-9 pl-8 pr-3 font-sans text-[14px] text-black bg-white border border-[#E5E5E5] rounded-lg outline-none transition-colors focus:border-black placeholder:text-gray-400"
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <div className="flex items-center space-x-4 mb-4">
-            <div className="w-16 h-16 rounded-full bg-[var(--accent)] flex items-center justify-center text-3xl">
-              {master.avatar}
-            </div>
-            <div>
-              <DialogTitle>{master.name}</DialogTitle>
-              <DialogDescription>{master.title}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        {/* Overlay */}
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label>Select a session length</Label>
-            <div className="flex gap-2 mt-2">
-              {[30, 60, 90].map((length) => (
+        {/* Modal panel */}
+        <DialogPrimitive.Content
+          className="fixed left-1/2 top-1/2 z-50 w-full max-w-[520px] -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl border border-[#E5E5E5] overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          style={{ maxHeight: "85vh" }}
+        >
+          {/* Close button */}
+          <DialogPrimitive.Close className="absolute right-4 top-4 z-10 rounded-full p-1.5 text-gray-400 hover:text-black transition-colors">
+            <X size={16} />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+
+          {/* Scrollable content */}
+          <div className="overflow-y-auto" style={{ maxHeight: "85vh" }}>
+
+            {/* ── Header ── */}
+            <div className="px-5 pt-5 pb-4 border-b border-[#F0F0F0]">
+              <div className="flex items-center gap-3 pr-8">
+                <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center text-[18px] flex-shrink-0 select-none">
+                  {master.avatar}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-display font-bold text-[18px] text-black leading-tight truncate">
+                    {master.name}
+                  </p>
+                  <p className="font-sans text-[12px] text-gray-400 leading-tight truncate">
+                    {master.title}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Body ── */}
+            {isSubmitted ? (
+              /* Success state */
+              <div className="px-5 py-8 flex flex-col items-center text-center">
+                <CheckCircle size={40} className="text-black mb-2" />
+                <h3 className="font-display font-bold text-[22px] text-black mb-1.5">
+                  Request Sent!
+                </h3>
+                <p className="font-sans text-[13px] text-gray-500 leading-[1.5] max-w-[320px]">
+                  Master {master.name} will be in touch within 24 hours to confirm your session.
+                </p>
                 <button
-                  key={length}
-                  type="button"
-                  onClick={() => setSessionLength(length as 30 | 60 | 90)}
-                  className={`flex-1 px-4 py-2 rounded-2xl border-2 transition-all ${
-                    sessionLength === length
-                      ? "border-[var(--accent)] bg-[var(--bg-secondary)]"
-                      : "border-[var(--border)] bg-white hover:border-[var(--accent)]"
-                  }`}
+                  onClick={() => onOpenChange(false)}
+                  className="mt-5 px-5 py-2 rounded-full border border-black font-sans text-[13px] text-black bg-white hover:bg-black hover:text-white transition-colors"
                 >
-                  <div className="font-bold text-[var(--text-primary)]">{length} min</div>
-                  <div className="text-xs text-[var(--text-muted)]">
-                    £{Math.round((master.pricePerSession / 60) * length)}
-                  </div>
+                  Close
                 </button>
-              ))}
-            </div>
-          </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="px-5 py-4 flex flex-col gap-[10px]">
 
-          <div>
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="mt-1"
-            />
-          </div>
+                {/* Session length */}
+                <div>
+                  <p className="font-sans text-[12px] text-gray-400 uppercase tracking-wide mb-1.5">
+                    Session
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    {SESSION_LENGTHS.map((len) => {
+                      const isActive = sessionLength === len
+                      const sessionPrice = Math.round((master.pricePerSession / 60) * len)
+                      return (
+                        <button
+                          key={len}
+                          type="button"
+                          onClick={() => setSessionLength(len)}
+                          className={`px-4 py-1.5 rounded-full border font-sans text-[13px] transition-colors ${
+                            isActive
+                              ? "bg-black text-white border-black"
+                              : "bg-white text-black border-black hover:bg-gray-50"
+                          }`}
+                        >
+                          {len} min
+                        </button>
+                      )
+                    })}
+                    <span className="font-sans text-[13px] font-bold text-black ml-1">
+                      · £{price}
+                    </span>
+                  </div>
+                </div>
 
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="mt-1"
-            />
-          </div>
+                {/* Name + Email side by side on desktop, stacked on mobile */}
+                <div className="flex flex-col sm:flex-row gap-[10px]">
+                  <div className="flex-1 min-w-0">
+                    <label htmlFor="bm-name" className="block font-sans text-[12px] text-gray-400 mb-1">
+                      Name
+                    </label>
+                    <div className="relative">
+                      <User size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      <input
+                        id="bm-name"
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                        placeholder="Your name"
+                        className={inputWithIcon}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label htmlFor="bm-email" className="block font-sans text-[12px] text-gray-400 mb-1">
+                      Email
+                    </label>
+                    <div className="relative">
+                      <Mail size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      <input
+                        id="bm-email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        placeholder="your@email.com"
+                        className={inputWithIcon}
+                      />
+                    </div>
+                  </div>
+                </div>
 
-          <div>
-            <Label htmlFor="message">Tell the master about your space</Label>
-            <Textarea
-              id="message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={4}
-              className="mt-1"
-              placeholder="Describe your room, concerns, or what you'd like to improve..."
-            />
-          </div>
+                {/* Message */}
+                <div>
+                  <label htmlFor="bm-message" className="block font-sans text-[12px] text-gray-400 mb-1">
+                    Message
+                  </label>
+                  <textarea
+                    id="bm-message"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={3}
+                    placeholder="Describe your room, concerns, or what you'd like to improve..."
+                    className={`${inputBase} h-[72px] resize-none py-2`}
+                  />
+                </div>
 
-          <div className="p-4 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-dark)]">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-[var(--text-secondary)]">
-                Total Price
-              </span>
-              <span className="text-2xl font-bold text-[var(--text-primary)]">
-                £{price}
-              </span>
-            </div>
-          </div>
+                {/* Availability note */}
+                <div className="flex items-center gap-1.5">
+                  <Clock size={12} className="text-gray-400 flex-shrink-0" />
+                  <span className="font-sans text-[12px] text-gray-400 italic">
+                    Master will confirm within 24 hours
+                  </span>
+                </div>
 
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="rounded-full">
-              Cancel
-            </Button>
-            <Button type="submit" className="rounded-full">Request Booking</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+                {/* Submit */}
+                <button
+                  type="submit"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-full bg-black text-white font-sans text-[14px] font-medium hover:bg-[#1a1a1a] transition-colors mt-1"
+                >
+                  <Send size={16} />
+                  Request Booking
+                </button>
+
+              </form>
+            )}
+
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }

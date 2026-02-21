@@ -37,6 +37,25 @@
   }
 }
 
+/* Animated border for Analyse button */
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes spin-border {
+  to { --border-angle: 360deg; }
+}
+
+.animate-border-spin {
+  animation: spin-border 4s linear infinite;
+}
+
+.animate-border-spin-fast {
+  animation: spin-border 1.5s linear infinite;
+}
+
 /* Keyframes must be at root level */
 @keyframes spin {
   from {
@@ -81,5 +100,15 @@
 
   .animate-accordion-up {
     animation: accordion-up 0.2s ease-out;
+  }
+
+  .text-cultural {
+    font-family: 'Cormorant Garamond', serif;
+    letter-spacing: 0.01em;
+  }
+
+  .text-ui {
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: 0em;
   }
 }
