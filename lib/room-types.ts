@@ -41,7 +41,7 @@ export interface WindowItem {
 
 export interface CanvasState {
   template: Template;
-  northWall: Wall;
+  northWall?: Wall;
   furniture: PlacedFurniture[];
   doorPosition: {
     wall: Wall;
@@ -54,7 +54,7 @@ export interface LayoutData {
     type: string;
     widthMetres: number;
     heightMetres: number;
-    northWall: string;
+    facingDirection: string;
   };
   door: {
     wall: string;

@@ -3,14 +3,24 @@
 import { motion } from "framer-motion"
 import { CheckCircle } from "lucide-react"
 import { FengShuiAnalysis } from "@/lib/room-types"
+import { PositivesIllustration } from "./TabIllustrations"
 
 interface PositivesTabProps {
   features: FengShuiAnalysis["auspicious_features"]
+  isActive?: boolean
 }
 
-export function PositivesTab({ features }: PositivesTabProps) {
+export function PositivesTab({ features, isActive = false }: PositivesTabProps) {
   return (
     <div className="space-y-3">
+      {/* Illustration */}
+      <div className="flex flex-col items-center mb-5">
+        <PositivesIllustration isActive={isActive} />
+        <p className="font-sans text-[11px] text-gray-400 italic mt-2">
+          What your layout is already doing well
+        </p>
+      </div>
+
       <p className="font-sans text-[14px] text-gray-500 mb-4">
         What your layout is already doing well according to classical Feng Shui.
       </p>
@@ -30,7 +40,7 @@ export function PositivesTab({ features }: PositivesTabProps) {
           className="flex items-start gap-4 bg-[#FDFAF5] border-l-[3px] border-black rounded-xl px-5 py-4"
         >
           <CheckCircle size={24} className="text-black flex-shrink-0 mt-0.5" />
-          <p className="font-sans text-[15px] text-black leading-[1.6]">{feature}</p>
+          <p className="font-sans text-[15px] text-black leading-[1.6]">{typeof feature === "string" ? feature : String(feature ?? "")}</p>
         </motion.div>
       ))}
 

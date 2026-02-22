@@ -4,14 +4,14 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { motion, AnimatePresence } from "framer-motion"
-import { LayoutDashboard, Compass, Package, AlertTriangle, Map, Sparkles, Calendar, RotateCcw } from "lucide-react"
+import { LayoutDashboard, Compass, Package, AlertTriangle, Map, Sparkles, Lightbulb, Calendar, RotateCcw } from "lucide-react"
 import { FengShuiAnalysis, LayoutData } from "@/lib/room-types"
 import { ScoreBadge } from "@/components/results/ScoreBadge"
 import { ElementBalance } from "@/components/results/ElementBalance"
 import { IssuesTab } from "@/components/results/IssuesTab"
 import { ZonesTab } from "@/components/results/ZonesTab"
 import { PositivesTab } from "@/components/results/PositivesTab"
-import { RecommendationsSection } from "@/components/results/RecommendationsSection"
+import { RecommendationsTab } from "@/components/results/RecommendationsTab"
 
 const RoomPreview = dynamic(
   () => import("@/components/results/RoomPreview").then((mod) => ({ default: mod.RoomPreview })),
@@ -19,9 +19,10 @@ const RoomPreview = dynamic(
 )
 
 const TABS = [
-  { id: "issues",    label: "Issues",    icon: <AlertTriangle size={14} /> },
-  { id: "zones",     label: "Zones",     icon: <Map size={14} /> },
-  { id: "positives", label: "Positives", icon: <Sparkles size={14} /> },
+  { id: "issues",          label: "Issues",          icon: <AlertTriangle size={14} /> },
+  { id: "zones",           label: "Zones",           icon: <Map size={14} /> },
+  { id: "positives",       label: "Positives",       icon: <Sparkles size={14} /> },
+  { id: "recommendations", label: "Recommendations", icon: <Lightbulb size={14} /> },
 ] as const
 
 type TabId = typeof TABS[number]["id"]
@@ -55,6 +56,11 @@ export default function ResultsPage() {
     )
   }
 
+  const issues = Array.isArray(analysis.issues) ? analysis.issues : []
+  const zoneAnalysis = Array.isArray(analysis.zone_analysis) ? analysis.zone_analysis : []
+  const positives = Array.isArray(analysis.auspicious_features) ? analysis.auspicious_features : []
+  const recommendations = Array.isArray(analysis.recommendations) ? analysis.recommendations : []
+
   return (
     <div className="flex flex-col md:flex-row md:h-[calc(100vh-4rem)] bg-white overflow-hidden">
 
@@ -77,17 +83,17 @@ export default function ResultsPage() {
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-black font-sans text-[13px] text-black">
               <Compass size={13} />
-              {layoutData.room.northWall}
+              {layoutData.room.facingDirection ?? (layoutData.room as { northWall?: string }).northWall ?? "—"}
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-black font-sans text-[13px] text-black">
               <Package size={13} />
-              {layoutData.furniture.length} items
+              {Array.isArray(layoutData.furniture) ? layoutData.furniture.length : 0} items
             </div>
           </div>
 
           {/* Score badge */}
           <div className="flex justify-center py-4">
-            <ScoreBadge score={analysis.overall_score} />
+            <ScoreBadge score={typeof analysis.overall_score === "number" ? analysis.overall_score : 0} />
           </div>
 
           {/* Harmony level + overall summary */}
@@ -96,10 +102,10 @@ export default function ResultsPage() {
               className="font-display italic text-[18px]"
               style={{ color: "#555" }}
             >
-              {analysis.harmony_level}
+              {analysis.harmony_level ?? "—"}
             </p>
             <p className="font-display text-[17px] leading-[1.8] text-gray-600">
-              {analysis.overall_summary}
+              {analysis.overall_summary ?? "No summary available."}
             </p>
           </div>
 
@@ -117,12 +123,12 @@ export default function ResultsPage() {
       <div className="md:flex-1 flex flex-col md:overflow-hidden">
 
         {/* Tab bar */}
-        <div className="flex-shrink-0 flex border-b border-black bg-white">
+        <div className="flex-shrink-0 flex border-b border-black bg-white overflow-x-auto">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-5 py-4 font-sans text-[14px] font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-2 px-4 py-4 font-sans text-[13px] font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "border-black text-black"
                   : "border-transparent text-gray-400 hover:text-gray-600"
@@ -130,20 +136,19 @@ export default function ResultsPage() {
             >
               {tab.icon}
               {tab.label}
-              {tab.id === "issues" && analysis.issues.length > 0 && (
+              {tab.id === "issues" && issues.length > 0 && (
                 <span className="ml-0.5 bg-black text-white font-sans text-[11px] rounded-full w-4 h-4 flex items-center justify-center leading-none">
-                  {analysis.issues.length}
+                  {issues.length}
                 </span>
               )}
             </button>
           ))}
         </div>
 
-        {/* Scrollable tab content + recommendations */}
+        {/* Scrollable tab content */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-6">
 
-            {/* Tab content */}
             <AnimatePresence mode="wait">
               {activeTab === "issues" && (
                 <motion.div
@@ -153,7 +158,7 @@ export default function ResultsPage() {
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <IssuesTab issues={analysis.issues} />
+                  <IssuesTab issues={issues} isActive={activeTab === "issues"} />
                 </motion.div>
               )}
               {activeTab === "zones" && (
@@ -164,7 +169,7 @@ export default function ResultsPage() {
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <ZonesTab zones={analysis.zone_analysis} />
+                  <ZonesTab zones={zoneAnalysis} isActive={activeTab === "zones"} />
                 </motion.div>
               )}
               {activeTab === "positives" && (
@@ -175,13 +180,24 @@ export default function ResultsPage() {
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <PositivesTab features={analysis.auspicious_features} />
+                  <PositivesTab features={positives} isActive={activeTab === "positives"} />
+                </motion.div>
+              )}
+              {activeTab === "recommendations" && (
+                <motion.div
+                  key="recommendations"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <RecommendationsTab
+                    recommendations={recommendations}
+                    isActive={activeTab === "recommendations"}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {/* Always-visible recommendations */}
-            <RecommendationsSection recommendations={analysis.recommendations} />
 
           </div>
         </div>

@@ -14,29 +14,42 @@ export default function Home() {
   return (
     <>
       {/* ── Hero section ── */}
-      <div className="relative flex flex-col items-center min-h-[calc(100vh-4rem)] px-4 overflow-hidden">
-        {/* Decorative background ☯ — atmospheric watermark */}
-        <div className="fixed inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-          <div
+      <div
+        className="relative flex flex-col items-center min-h-[calc(100vh-4rem)] px-4 overflow-x-hidden"
+        style={{
+          backgroundImage:
+            "linear-gradient(160deg, #FDF9F0 0%, #FAF6EC 40%, #F5EFE0 100%), url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E\")",
+          backgroundBlendMode: "normal, multiply",
+        }}
+      >
+        {/* Decorative background ☯ — atmospheric watermark (behind all content) */}
+        <div className="fixed inset-0 z-0 flex items-center justify-center pointer-events-none overflow-hidden" aria-hidden>
+          <motion.div
             className="select-none"
             style={{
               fontSize: "520px",
               lineHeight: 1,
               color: "#1A1A1A",
-              opacity: 0.09,
               filter: "blur(0.5px) drop-shadow(0 0 40px rgba(0,0,0,0.08))",
-              animation: "spin 60s linear infinite",
+            }}
+            animate={{
+              scale: [0.94, 1.06, 0.94],
+              opacity: [0.06, 0.12, 0.06],
+            }}
+            transition={{
+              scale:   { duration: 6, repeat: Infinity, ease: "easeInOut" },
+              opacity: { duration: 6, repeat: Infinity, ease: "easeInOut" },
             }}
           >
             ☯
-          </div>
+          </motion.div>
         </div>
 
         {/* Floating Feng Shui principle badges */}
         <FloatingBadges />
 
-        {/* Hero */}
-        <div className="relative z-10 flex flex-col items-center text-center w-full max-w-4xl pt-20 pb-16">
+        {/* Hero — above badges and watermark */}
+        <div className="relative z-10 flex flex-col items-center text-center w-full max-w-4xl pt-12 sm:pt-20 pb-16 px-2">
           {/* Animated Bagua trigram element above headline */}
           <BaguaTrigrams />
 

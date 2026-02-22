@@ -32,9 +32,10 @@ export function AnimatedAnalyseButton({
   const iconSize = size === "default" ? 18 : 15
 
   const btnClass = [
-    "relative flex items-center gap-2 font-sans font-medium text-white rounded-full transition-colors",
+    "relative inline-flex items-center justify-center gap-2 font-sans font-medium text-white rounded-full transition-colors min-h-[56px]",
     hovered ? "bg-[#1A1A1A]" : "bg-[#0A0A0A]",
     "disabled:opacity-50 disabled:cursor-not-allowed",
+    size === "default" ? "min-w-[200px] sm:min-w-[220px]" : "",
     px,
   ].join(" ")
 
@@ -68,7 +69,7 @@ export function AnimatedAnalyseButton({
         whileTap={{ scale: 0.97 }}
       >
         {href ? (
-          <Link href={href} className={btnClass}>
+          <Link href={href} className={btnClass} style={{ textDecoration: "none" }}>
             {content}
           </Link>
         ) : (

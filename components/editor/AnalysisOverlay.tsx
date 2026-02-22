@@ -22,6 +22,8 @@ export function AnalysisOverlay({ isVisible, isComplete, onExitComplete }: Analy
   const [messageIndex, setMessageIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const [shouldExit, setShouldExit] = useState(false)
+  const [displayedText, setDisplayedText] = useState("")
+  const [charIndex, setCharIndex] = useState(0)
 
   // Reset state when overlay appears
   useEffect(() => {
@@ -29,31 +31,54 @@ export function AnalysisOverlay({ isVisible, isComplete, onExitComplete }: Analy
       setMessageIndex(0)
       setProgress(0)
       setShouldExit(false)
+      setDisplayedText("")
+      setCharIndex(0)
     }
   }, [isVisible])
 
-  // Cycle messages every 2s while visible
+  // Cycle messages every 2.5s
   useEffect(() => {
     if (!isVisible || shouldExit) return
     const interval = setInterval(() => {
       setMessageIndex((prev) => (prev + 1) % MESSAGES.length)
-    }, 2000)
+    }, 2500)
     return () => clearInterval(interval)
   }, [isVisible, shouldExit])
 
-  // Progress bar: 0 → 90% over 20s
+  // Reset typewriter when message changes
+  useEffect(() => {
+    setDisplayedText("")
+    setCharIndex(0)
+  }, [messageIndex])
+
+  // Typewriter effect: one character every 28ms
+  useEffect(() => {
+    if (!isVisible || shouldExit) return
+    const currentMessage = MESSAGES[messageIndex]
+    if (charIndex >= currentMessage.length) return
+    const timer = setTimeout(() => {
+      setDisplayedText(currentMessage.slice(0, charIndex + 1))
+      setCharIndex((prev) => prev + 1)
+    }, 28)
+    return () => clearTimeout(timer)
+  }, [charIndex, messageIndex, isVisible, shouldExit])
+
+  // Progress: phase 1 → 60% in 8s, phase 2 → 90% in 12s (200ms interval)
+  // Phase 1: 1.5% per tick × 40 ticks = 60% in 8s
+  // Phase 2: 0.5% per tick × 60 ticks = 30% in 12s
   useEffect(() => {
     if (!isVisible || shouldExit) return
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 90) return prev
-        return prev + 4.5
+        if (prev < 60) return Math.min(60, prev + 1.5)
+        return prev + 0.5
       })
-    }, 1000)
+    }, 200)
     return () => clearInterval(interval)
   }, [isVisible, shouldExit])
 
-  // When complete: jump to 100%, then fade out after 600ms
+  // When complete: jump to 100%, then fade out after 700ms
   useEffect(() => {
     if (!isComplete) return
     setProgress(100)
@@ -73,6 +98,11 @@ export function AnalysisOverlay({ isVisible, isComplete, onExitComplete }: Analy
           exit={{ opacity: 0 }}
           transition={{ duration: 0.35 }}
         >
+          {/* Hint text */}
+          <p className="absolute top-8 font-sans text-[11px] text-gray-400 tracking-wide">
+            Usually ready in 15–20 seconds
+          </p>
+
           {/* Rotating ☯ */}
           <motion.div
             className="text-7xl mb-8 select-none"
@@ -82,29 +112,25 @@ export function AnalysisOverlay({ isVisible, isComplete, onExitComplete }: Analy
             ☯
           </motion.div>
 
-          {/* Cycling message */}
+          {/* Typewriter message */}
           <div className="h-8 flex items-center justify-center mb-10">
-            <AnimatePresence mode="wait">
-              <motion.p
-                key={messageIndex}
-                className="text-lg font-medium text-black tracking-wide"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.35 }}
-              >
-                {MESSAGES[messageIndex]}
-              </motion.p>
-            </AnimatePresence>
+            <p className="text-lg font-medium text-black tracking-wide">
+              {displayedText}
+              <motion.span
+                className="inline-block w-0.5 h-[18px] bg-black ml-0.5 align-middle"
+                animate={{ opacity: [1, 0, 1] }}
+                transition={{ duration: 0.8, repeat: Infinity, ease: "steps(1)" }}
+              />
+            </p>
           </div>
 
           {/* Progress bar */}
-          <div className="w-56 h-px bg-gray-200 rounded-full overflow-hidden mb-16">
+          <div className="w-56 h-1.5 bg-gray-200 rounded-full overflow-hidden mb-16">
             <motion.div
-              className="h-full bg-black rounded-full origin-left"
-              animate={{ scaleX: progress / 100 }}
-              transition={{ duration: progress === 100 ? 0.3 : 1, ease: "easeOut" }}
+              className="h-full w-full bg-black rounded-full"
               style={{ transformOrigin: "left" }}
+              animate={{ scaleX: Math.min(100, progress) / 100 }}
+              transition={{ duration: progress >= 100 ? 0.3 : 0.2, ease: "easeOut" }}
             />
           </div>
 

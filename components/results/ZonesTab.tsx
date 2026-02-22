@@ -4,9 +4,11 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronDown } from "lucide-react"
 import { FengShuiAnalysis } from "@/lib/room-types"
+import { ZonesIllustration } from "./TabIllustrations"
 
 interface ZonesTabProps {
   zones: FengShuiAnalysis["zone_analysis"]
+  isActive?: boolean
 }
 
 // Bagua grid: South at top (traditional orientation)
@@ -41,10 +43,10 @@ function getElementConfig(element: string) {
   return ELEMENT_CONFIG[element?.toLowerCase()] ?? ELEMENT_CONFIG.earth
 }
 
-export function ZonesTab({ zones }: ZonesTabProps) {
+export function ZonesTab({ zones, isActive = false }: ZonesTabProps) {
   const [openSet, setOpenSet] = useState<Set<number>>(new Set())
 
-  const zoneMap = new Map(zones.map((z) => [z.zone, z]))
+  const zoneMap = new Map(zones.map((z, idx) => [String(z?.zone ?? "").trim() || `_${idx}`, z]))
 
   const toggle = (i: number) => {
     setOpenSet((prev) => {
@@ -57,6 +59,14 @@ export function ZonesTab({ zones }: ZonesTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Illustration */}
+      <div className="flex flex-col items-center mb-1">
+        <ZonesIllustration isActive={isActive} />
+        <p className="font-sans text-[11px] text-gray-400 italic mt-2">
+          The nine Bagua life zones in your space
+        </p>
+      </div>
+
       <p className="font-sans text-[14px] text-gray-500">
         How the nine Bagua life zones map to your current room arrangement.
       </p>
@@ -98,8 +108,8 @@ export function ZonesTab({ zones }: ZonesTabProps) {
       <div className="space-y-1.5">
         {zones.map((zone, i) => {
           const isOpen = openSet.has(i)
-          const el = getElementConfig(zone.element)
-          const colors = STATUS_COLORS[zone.status] ?? STATUS_COLORS.default
+          const el = getElementConfig(zone?.element ?? "earth")
+          const colors = STATUS_COLORS[zone?.status ?? ""] ?? STATUS_COLORS.default
 
           return (
             <div key={i} className="border border-[var(--border)] rounded-xl overflow-hidden">
@@ -114,15 +124,15 @@ export function ZonesTab({ zones }: ZonesTabProps) {
                 />
                 <div className="flex-1 min-w-0">
                   <p className="font-sans text-[14px] font-bold text-black leading-tight">
-                    {zone.zone}
+                    {zone?.zone ?? "Zone"}
                   </p>
-                  <p className="font-sans text-[12px] text-gray-500 leading-tight">{zone.life_area}</p>
+                  <p className="font-sans text-[12px] text-gray-500 leading-tight">{zone?.life_area ?? "—"}</p>
                 </div>
                 <span
                   className="flex items-center gap-1 px-2.5 py-1 rounded-full font-sans text-[11px] font-medium flex-shrink-0"
                   style={{ backgroundColor: el.bg, color: el.text }}
                 >
-                  {zone.element} {el.zh}
+                  {zone?.element ?? "—"} {el.zh}
                 </span>
                 <motion.div
                   animate={{ rotate: isOpen ? 180 : 0 }}
@@ -147,7 +157,7 @@ export function ZonesTab({ zones }: ZonesTabProps) {
                       className="px-4 py-3 ml-7 font-sans text-[14px] text-gray-500 leading-[1.6] border-l-2"
                       style={{ borderColor: el.border }}
                     >
-                      {zone.note}
+                      {zone?.note ?? "—"}
                     </div>
                   </motion.div>
                 )}

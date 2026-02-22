@@ -71,4 +71,12 @@ REQUIRED RESPONSE SCHEMA:
     }
   ],
   "auspicious_features": ["<positive things already in the layout>"]
-}`;
+}
+
+RESPONSE LENGTH CONSTRAINTS — strictly enforce:
+- overall_summary: maximum 2 sentences total
+- Each issue description: maximum 2 sentences
+- Each zone_analysis note: maximum 1 sentence
+- recommendations array: maximum 4 items total
+- Each recommendation reason: maximum 1 sentence
+- Keep all JSON field names exactly the same — only reduce text length`;

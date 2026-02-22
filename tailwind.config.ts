@@ -25,9 +25,9 @@ const config: Config = {
         "accent-hover": "var(--accent-hover)",
       },
       fontFamily: {
-        display: ["var(--font-cormorant)", "serif"],
-        serif: ["var(--font-cormorant)", "serif"],
-        sans: ["var(--font-dm-sans)", "sans-serif"],
+        display: ["var(--font-cormorant)", "Georgia", "Cambria", "serif"],
+        serif: ["var(--font-cormorant)", "Georgia", "serif"],
+        sans: ["var(--font-dm-sans)", "system-ui", "-apple-system", "sans-serif"],
       },
     },
   },

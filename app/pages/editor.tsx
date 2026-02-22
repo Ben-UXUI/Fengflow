@@ -130,7 +130,7 @@ export default function EditorPage() {
         type: template.label,
         widthMetres: roomWidthMetres,
         heightMetres: roomHeightMetres,
-        northWall: northWall,
+        facingDirection: northWall,
       },
       door: {
         wall: doorPosition.wall,
@@ -295,7 +295,7 @@ export default function EditorPage() {
           }}>
             <RoomCanvas
               template={template}
-              northWall={northWall}
+              facingDirection={null}
               furniture={furniture}
               windows={[]}
               doorPosition={doorPosition}

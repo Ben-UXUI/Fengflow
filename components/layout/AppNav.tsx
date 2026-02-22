@@ -17,7 +17,7 @@ export function AppNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-[var(--border-dark)]">
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-[var(--border-dark)]" style={{ backgroundColor: "#FAF6EC" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -106,7 +106,7 @@ export function AppNav() {
 
       {/* Mobile dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-[var(--border)] bg-white">
+        <div className="md:hidden border-t border-[var(--border)]" style={{ backgroundColor: "#FAF6EC" }}>
           <nav className="px-4 py-4 space-y-1">
             {NAV_ITEMS.map(({ href, label, Icon }) => {
               const isActive =
