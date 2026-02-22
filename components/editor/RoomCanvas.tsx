@@ -98,10 +98,23 @@ function doorClosedLine(wall: Wall, cx: number, cy: number, dw: number): number[
   }
 }
 
-// Get the Bagua zone for a furniture item based on fixed layout
-function getZone(item: PlacedFurniture, ox: number, oy: number, rw: number, rh: number): string | null {
-  const relX = (item.x - ox) / rw
-  const relY = (item.y - oy) / rh
+// Convert room-relative percent to canvas pixel position/size
+function itemToPixels(
+  item: PlacedFurniture,
+  offsetX: number, offsetY: number, roomW: number, roomH: number
+) {
+  return {
+    x: offsetX + (item.xPercent / 100) * roomW,
+    y: offsetY + (item.yPercent / 100) * roomH,
+    w: (item.widthPercent / 100) * roomW,
+    h: (item.heightPercent / 100) * roomH,
+  }
+}
+
+// Get the Bagua zone for a point (pixel coords) based on fixed layout
+function getZone(px: number, py: number, ox: number, oy: number, rw: number, rh: number): string | null {
+  const relX = (px - ox) / rw
+  const relY = (py - oy) / rh
   if (relX < 0 || relX > 1 || relY < 0 || relY > 1) return null
   const col = Math.min(2, Math.floor(relX * 3))
   const row = Math.min(2, Math.floor(relY * 3))
@@ -286,60 +299,69 @@ export function RoomCanvas({
   const computeSnapLines = useCallback((draggedId: string, dragX: number, dragY: number) => {
     const item = furniture.find(f => f.id === draggedId)
     if (!item) return
-    const dw = item.width  * (item.scaleX ?? 1) * scale
-    const dh = item.height * (item.scaleY ?? 1) * scale
+    const dp = itemToPixels(item, offsetX, offsetY, roomW, roomH)
+    const dw = dp.w, dh = dp.h
     const dEH = [dragY, dragY + dh/2, dragY + dh]
     const dEV = [dragX, dragX + dw/2, dragX + dw]
     const hLines: number[] = []
     const vLines: number[] = []
     for (const other of furniture) {
       if (other.id === draggedId) continue
-      const iw = other.width  * (other.scaleX ?? 1) * scale
-      const ih = other.height * (other.scaleY ?? 1) * scale
-      const iEH = [other.y, other.y + ih/2, other.y + ih]
-      const iEV = [other.x, other.x + iw/2, other.x + iw]
+      const op = itemToPixels(other, offsetX, offsetY, roomW, roomH)
+      const iEH = [op.y, op.y + op.h/2, op.y + op.h]
+      const iEV = [op.x, op.x + op.w/2, op.x + op.w]
       for (const de of dEH) for (const ie of iEH) if (Math.abs(de - ie) < SNAP_THRESH) hLines.push(ie)
       for (const de of dEV) for (const ie of iEV) if (Math.abs(de - ie) < SNAP_THRESH) vLines.push(ie)
     }
     for (const de of dEH) for (const re of [offsetY, offsetY+roomH/2, offsetY+roomH]) if (Math.abs(de - re) < SNAP_THRESH) hLines.push(re)
     for (const de of dEV) for (const re of [offsetX, offsetX+roomW/2, offsetX+roomW]) if (Math.abs(de - re) < SNAP_THRESH) vLines.push(re)
     setSnapLines({ h: [...new Set(hLines)], v: [...new Set(vLines)] })
-  }, [furniture, scale, offsetX, offsetY, roomW, roomH])
+  }, [furniture, offsetX, offsetY, roomW, roomH])
 
   // ── Drag end ──────────────────────────────────────────────────────────────
   const handleDragEnd = useCallback((e: Konva.KonvaEventObject<DragEvent>, id: string) => {
     setSnapLines({ h: [], v: [] })
     const node = e.target
-    const x = Math.round(node.x() / 20) * 20
-    const y = Math.round(node.y() / 20) * 20
+    let x = Math.round(node.x() / 20) * 20
+    let y = Math.round(node.y() / 20) * 20
     const item = furniture.find(f => f.id === id)
     if (!item) return
-    const iw = item.width  * (item.scaleX ?? 1) * scale
-    const ih = item.height * (item.scaleY ?? 1) * scale
-    const cx = Math.max(offsetX, Math.min(x, offsetX + roomW - iw))
-    const cy = Math.max(offsetY, Math.min(y, offsetY + roomH - ih))
+    const pw = (item.widthPercent / 100) * roomW
+    const ph = (item.heightPercent / 100) * roomH
+    const cx = Math.max(offsetX, Math.min(x, offsetX + roomW - pw))
+    const cy = Math.max(offsetY, Math.min(y, offsetY + roomH - ph))
     node.position({ x: cx, y: cy })
-    onFurnitureUpdate(furniture.map(f => f.id === id ? { ...f, x: cx, y: cy } : f))
+    const xPercent = ((cx - offsetX) / roomW) * 100
+    const yPercent = ((cy - offsetY) / roomH) * 100
+    onFurnitureUpdate(furniture.map(f => f.id === id ? { ...f, xPercent, yPercent } : f))
     updateToolbar(node)
-  }, [furniture, offsetX, offsetY, roomW, roomH, scale, onFurnitureUpdate, updateToolbar])
+  }, [furniture, offsetX, offsetY, roomW, roomH, onFurnitureUpdate, updateToolbar])
 
-  // ── Transform end — absorb scale into width/height to prevent emoji stretch
+  // ── Transform end — absorb scale into widthPercent/heightPercent
   const handleTransformEnd = useCallback((e: Konva.KonvaEventObject<Event>, id: string) => {
     const node = e.target as Konva.Group
     const item = furniture.find(f => f.id === id)
     if (!item) return
     const sx = node.scaleX()
     const sy = node.scaleY()
-    const newW = Math.max(20/scale, item.width  * Math.abs(sx))
-    const newH = Math.max(20/scale, item.height * Math.abs(sy))
+    const pixelW = (item.widthPercent / 100) * roomW
+    const pixelH = (item.heightPercent / 100) * roomH
+    const newPixelW = Math.max(20, pixelW * Math.abs(sx))
+    const newPixelH = Math.max(20, pixelH * Math.abs(sy))
+    const px = node.x()
+    const py = node.y()
     node.scaleX(1); node.scaleY(1)
+    const xPercent = ((px - offsetX) / roomW) * 100
+    const yPercent = ((py - offsetY) / roomH) * 100
+    const widthPercent = (newPixelW / roomW) * 100
+    const heightPercent = (newPixelH / roomH) * 100
     onFurnitureUpdate(furniture.map(f =>
       f.id === id
-        ? { ...f, x: node.x(), y: node.y(), width: newW, height: newH, scaleX: 1, scaleY: 1, rotation: node.rotation() }
+        ? { ...f, xPercent, yPercent, widthPercent, heightPercent, rotation: node.rotation() }
         : f
     ))
     updateToolbar(node)
-  }, [furniture, scale, onFurnitureUpdate, updateToolbar])
+  }, [furniture, offsetX, offsetY, roomW, roomH, onFurnitureUpdate, updateToolbar])
 
   // ── Door drag ─────────────────────────────────────────────────────────────
   const handleDoorDragMove = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
@@ -391,14 +413,25 @@ export function RoomCanvas({
     if (!selectedFurnitureId) return
     onFurnitureUpdate(furniture.map(f => {
       if (f.id !== selectedFurnitureId) return f
-      const ns = Math.max(0.5, Math.min(2.0, (f.scaleX??1) + delta))
-      return { ...f, scaleX: ns, scaleY: ns }
+      const factor = Math.max(0.5, Math.min(2.0, 1 + delta))
+      let wP = f.widthPercent * factor
+      let hP = f.heightPercent * factor
+      wP = Math.max(2, Math.min(50, wP))
+      hP = Math.max(2, Math.min(50, hP))
+      const xP = Math.max(0, Math.min(100 - wP, f.xPercent))
+      const yP = Math.max(0, Math.min(100 - hP, f.yPercent))
+      return { ...f, widthPercent: wP, heightPercent: hP, xPercent: xP, yPercent: yP }
     }))
   }, [selectedFurnitureId, furniture, onFurnitureUpdate])
 
   const duplicateItem = useCallback((id: string) => {
     const src = furniture.find(f => f.id === id); if (!src) return
-    onFurnitureUpdate([...furniture, { ...src, id: `furniture-${Date.now()}`, x: src.x+20, y: src.y+20 }])
+    const delta = 4
+    let xP = src.xPercent + delta
+    let yP = src.yPercent + delta
+    xP = Math.max(0, Math.min(100 - src.widthPercent, xP))
+    yP = Math.max(0, Math.min(100 - src.heightPercent, yP))
+    onFurnitureUpdate([...furniture, { ...src, id: `furniture-${Date.now()}`, xPercent: xP, yPercent: yP }])
   }, [furniture, onFurnitureUpdate])
 
   const moveToFront = useCallback((id: string) => {
@@ -413,7 +446,9 @@ export function RoomCanvas({
 
   const scalePercent = useMemo(() => {
     const sel = furniture.find(f => f.id === selectedFurnitureId)
-    return sel ? Math.round((sel.scaleX??1) * 100) : 100
+    if (!sel) return 100
+    const avg = (sel.widthPercent + sel.heightPercent) / 2
+    return Math.round((avg / 10) * 100)
   }, [furniture, selectedFurnitureId])
 
   // ── Double-click rename ───────────────────────────────────────────────────
@@ -531,10 +566,9 @@ export function RoomCanvas({
   const renamePos = useMemo(() => {
     if (!renamingId) return null
     const item = furniture.find(f => f.id === renamingId); if (!item) return null
-    const iw = item.width  * (item.scaleX??1) * scale
-    const ih = item.height * (item.scaleY??1) * scale
-    return toCSS({ x: item.x + iw/2, y: item.y + ih*0.78 })
-  }, [renamingId, furniture, scale, toCSS])
+    const p = itemToPixels(item, offsetX, offsetY, roomW, roomH)
+    return toCSS({ x: p.x + p.w/2, y: p.y + p.h*0.78 })
+  }, [renamingId, furniture, offsetX, offsetY, roomW, roomH, toCSS])
 
   // Zoom-adjusted toolbar CSS positions
   const toolbarCSSPos    = toolbarPos       ? toCSS(toolbarPos)       : null
@@ -803,23 +837,18 @@ export function RoomCanvas({
 
               {/* ── Furniture items ───────────────────────────────────── */}
               {furniture.map((item) => {
-                const w  = item.width  * scale
-                const h  = item.height * scale
-                const sx = item.scaleX ?? 1
-                const sy = item.scaleY ?? 1
-                const rw = w * sx; const rh = h * sy
+                const p = itemToPixels(item, offsetX, offsetY, roomW, roomH)
                 const isSelected  = item.id === selectedFurnitureId
-                const zone        = getZone(item, offsetX, offsetY, roomW, roomH)
+                const zone        = getZone(p.x, p.y, offsetX, offsetY, roomW, roomH)
                 const borderColor = zone ? FIXED_ZONE[zone].color : "#D0D0D0"
-                const emojiFSize  = Math.max(16, Math.min(48, Math.min(rw, rh) * (is3D ? 0.50 : 0.42)))
-                const labelFSize  = Math.max(7, Math.min(11, Math.min(rw * 0.18, 11)))
+                const emojiFSize  = Math.max(16, Math.min(48, Math.min(p.w, p.h) * (is3D ? 0.50 : 0.42)))
+                const labelFSize  = Math.max(7, Math.min(11, Math.min(p.w * 0.18, 11)))
 
                 return (
                   <Group
                     key={item.id} id={item.id}
-                    x={item.x} y={item.y}
+                    x={p.x} y={p.y}
                     rotation={item.rotation ?? 0}
-                    scaleX={sx} scaleY={sy}
                     draggable={!is3D}
                     onClick={() => { if (!is3D) { onSelectFurniture(item.id); onSelectWindow(null); setContextMenu(null) } }}
                     onTap={()   => { if (!is3D) { onSelectFurniture(item.id); onSelectWindow(null) } }}
@@ -830,8 +859,8 @@ export function RoomCanvas({
                     onDragEnd={e => handleDragEnd(e, item.id)}
                     onTransformEnd={e => handleTransformEnd(e, item.id)}
                     dragBoundFunc={pos => ({
-                      x: Math.max(offsetX, Math.min(pos.x, offsetX+roomW-w*sx)),
-                      y: Math.max(offsetY, Math.min(pos.y, offsetY+roomH-h*sy)),
+                      x: Math.max(offsetX, Math.min(pos.x, offsetX + roomW - p.w)),
+                      y: Math.max(offsetY, Math.min(pos.y, offsetY + roomH - p.h)),
                     })}
                     onMouseEnter={e => { if (!is3D) e.target.getStage()!.container().style.cursor = "grab" }}
                     onMouseLeave={e => { e.target.getStage()!.container().style.cursor = "default" }}
@@ -839,31 +868,27 @@ export function RoomCanvas({
                     shadowColor="black" shadowBlur={4} shadowOffsetX={3} shadowOffsetY={3} shadowOpacity={0.2}
                   >
                     <Rect
-                      width={w} height={h}
+                      width={p.w} height={p.h}
                       fill={roomStyle==="blueprint" ? "#0D1F38" : "white"}
                       cornerRadius={8}
                       stroke={zone ? borderColor : (roomStyle==="blueprint" ? "#00B4D8" : "#D0D0D0")}
                       strokeWidth={zone ? 1.5 : 1}
                       shadowColor="rgba(0,0,0,0.06)" shadowBlur={4} shadowOffsetX={0} shadowOffsetY={1}
                     />
-                    {/* Emoji — counter-scaled to prevent stretch */}
                     <Text
                       text={item.emoji}
-                      x={0} y={h * 0.08}
-                      width={w} height={h * 0.62}
+                      x={0} y={p.h * 0.08}
+                      width={p.w} height={p.h * 0.62}
                       align="center" verticalAlign="middle"
                       fontSize={emojiFSize}
-                      scaleX={1/sx} scaleY={1/sy}
                       listening={false}
                     />
-                    {/* Label — counter-scaled to prevent stretch */}
                     <Text
                       text={item.id === renamingId ? "" : item.label}
-                      x={0} y={h * 0.68}
-                      width={w} align="center"
+                      x={0} y={p.h * 0.68}
+                      width={p.w} align="center"
                       fontSize={labelFSize} fontFamily="sans-serif"
                       fill={isSelected ? (roomStyle==="blueprint" ? "#4FC3F7" : "#333") : (roomStyle==="blueprint" ? "#4FC3F7" : "#999")}
-                      scaleX={1/sx} scaleY={1/sy}
                       listening={false}
                     />
                   </Group>

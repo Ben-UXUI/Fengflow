@@ -69,6 +69,35 @@ export default function EditorPage() {
 
   const prevFacingRef = useRef<Direction | null>(null)
 
+  // ── Migrate old pixel-based furniture to percent (one-time when layout rect available)
+  useEffect(() => {
+    if (!layoutRect || furniture.length === 0) return
+    const old = furniture.some((f) => 'x' in f && typeof (f as { x?: number }).x === 'number' && !('xPercent' in f))
+    if (!old) return
+    setFurniture(
+      furniture.map((f) => {
+        const o = f as { x?: number; y?: number; width?: number; height?: number; scaleX?: number; scaleY?: number }
+        if (o.x == null || 'xPercent' in f) return f
+        const rw = layoutRect.roomWidth
+        const rh = layoutRect.roomHeight
+        const w = (o.width ?? 20) * (o.scaleX ?? 1) * layoutRect.scale
+        const h = (o.height ?? 20) * (o.scaleY ?? 1) * layoutRect.scale
+        return {
+          id: f.id,
+          itemId: f.itemId,
+          label: f.label,
+          emoji: f.emoji,
+          element: f.element,
+          rotation: f.rotation,
+          xPercent: ((o.x - layoutRect.offsetX) / rw) * 100,
+          yPercent: ((o.y - layoutRect.offsetY) / rh) * 100,
+          widthPercent: (w / rw) * 100,
+          heightPercent: (h / rh) * 100,
+        } as PlacedFurniture
+        })
+    )
+  }, [layoutRect]) // eslint-disable-line react-hooks/exhaustive-deps -- run once when rect available
+
   // ── Auto-place door when facing direction changes ─────────────────────────
   useEffect(() => {
     if (!facingDirection) { prevFacingRef.current = null; return }
@@ -89,20 +118,24 @@ export default function EditorPage() {
 
   const handleAddFurniture = useCallback((item: FurnitureItem) => {
     if (!layoutRect) return
-    const cx = layoutRect.offsetX + layoutRect.roomWidth  / 2
-    const cy = layoutRect.offsetY + layoutRect.roomHeight / 2
-    const w  = item.w * layoutRect.scale
-    const h  = item.h * layoutRect.scale
+    const rw = layoutRect.roomWidth
+    const rh = layoutRect.roomHeight
+    const wPx = item.w * layoutRect.scale
+    const hPx = item.h * layoutRect.scale
+    const widthPercent = (wPx / rw) * 100
+    const heightPercent = (hPx / rh) * 100
+    const xPercent = 50 - widthPercent / 2
+    const yPercent = 50 - heightPercent / 2
     const newItem: PlacedFurniture = {
       id: `furniture-${Date.now()}`,
       itemId: item.id,
       label: item.label,
       emoji: item.emoji,
       element: item.element,
-      x: cx - w / 2,
-      y: cy - h / 2,
-      width: item.w,
-      height: item.h,
+      xPercent,
+      yPercent,
+      widthPercent,
+      heightPercent,
     }
     setFurniture((prev) => [...prev, newItem])
     setLastAddedId(newItem.id)
@@ -137,11 +170,11 @@ export default function EditorPage() {
         id:            item.id,
         label:         item.label,
         element:       item.element,
-        xPercent:      ((item.x - rect.offsetX) / rect.roomWidth)  * 100,
-        yPercent:      ((item.y - rect.offsetY) / rect.roomHeight) * 100,
-        widthPercent:  (item.width  * (item.scaleX ?? 1) * rect.scale / rect.roomWidth)  * 100,
-        heightPercent: (item.height * (item.scaleY ?? 1) * rect.scale / rect.roomHeight) * 100,
-        rotation: item.rotation ?? 0,
+        xPercent:      item.xPercent,
+        yPercent:      item.yPercent,
+        widthPercent:  item.widthPercent,
+        heightPercent: item.heightPercent,
+        rotation:      item.rotation ?? 0,
       })),
     }
   }, [template, facingDirection, doorPosition, windows, furniture, layoutRect])
@@ -238,11 +271,11 @@ export default function EditorPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col bg-[var(--bg-primary)] overflow-hidden">
-      {/* Top bar — extra height so Analyse button + sublabel have room */}
-      <div className="flex-shrink-0 min-h-[88px] py-3 px-4 flex items-center justify-between bg-white border-b border-[var(--border-dark)]">
+    <div className="h-[calc(100vh-4rem)] flex flex-col bg-[var(--bg-primary)] overflow-hidden min-h-0">
+      {/* Top bar — height fits Analyse button + sublabel with room to breathe */}
+      <div className="flex-shrink-0 h-[90px] px-4 flex items-center justify-between bg-white border-b border-[var(--border-dark)]">
         <p className="font-sans text-sm font-medium text-[var(--text-muted)]">Editor</p>
-        <div className="flex flex-col items-center justify-center py-1">
+        <div className="flex flex-col items-center justify-center gap-0">
           <AnimatedAnalyseButton
             label="Analyse with Feng Shui AI"
             icon="sparkles"
@@ -252,7 +285,7 @@ export default function EditorPage() {
             isLoading={isAnalyzing}
             showSubLabel
           />
-          <span className="block h-2" aria-hidden />
+          <span className="block h-3 shrink-0" aria-hidden />
         </div>
       </div>
 

@@ -24,13 +24,15 @@ export interface PlacedFurniture {
   label: string;
   emoji: string;
   element: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  /** 0–100, percentage of room width from room left edge (top-left of item) */
+  xPercent: number;
+  /** 0–100, percentage of room height from room top edge (top-left of item) */
+  yPercent: number;
+  /** percentage of room width */
+  widthPercent: number;
+  /** percentage of room height */
+  heightPercent: number;
   rotation?: number;    // degrees (0–359), default 0
-  scaleX?: number;      // size multiplier (0.5–2.0), default 1
-  scaleY?: number;      // size multiplier (0.5–2.0), default 1
 }
 
 export interface WindowItem {

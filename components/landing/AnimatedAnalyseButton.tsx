@@ -32,10 +32,10 @@ export function AnimatedAnalyseButton({
   const iconSize = size === "default" ? 18 : 15
 
   const btnClass = [
-    "relative inline-flex items-center justify-center gap-2 font-sans font-medium text-white rounded-full transition-colors min-h-[56px]",
+    "relative inline-flex items-center justify-center gap-2 font-sans font-medium text-white rounded-full transition-colors",
+    size === "default" ? "min-h-[56px] min-w-[200px] sm:min-w-[220px]" : "min-h-[38px]",
     hovered ? "bg-[#1A1A1A]" : "bg-[#0A0A0A]",
     "disabled:opacity-50 disabled:cursor-not-allowed",
-    size === "default" ? "min-w-[200px] sm:min-w-[220px]" : "",
     px,
   ].join(" ")
 
@@ -80,7 +80,7 @@ export function AnimatedAnalyseButton({
       </motion.div>
 
       {showSubLabel && (
-        <p className="font-sans text-[11px] text-gray-400 text-center tracking-wide">
+        <p className="font-sans text-[11px] text-gray-400 text-center tracking-wide leading-tight mb-0.5">
           Powered by Claude AI · Classical Feng Shui Principles
         </p>
       )}
