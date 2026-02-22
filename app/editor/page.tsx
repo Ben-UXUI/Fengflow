@@ -74,27 +74,28 @@ export default function EditorPage() {
     if (!layoutRect || furniture.length === 0) return
     const old = furniture.some((f) => 'x' in f && typeof (f as { x?: number }).x === 'number' && !('xPercent' in f))
     if (!old) return
+    type LegacyItem = PlacedFurniture & { x: number; y: number; width?: number; height?: number; scaleX?: number; scaleY?: number }
     setFurniture(
-      furniture.map((f) => {
-        const o = f as { x?: number; y?: number; width?: number; height?: number; scaleX?: number; scaleY?: number }
-        if (o.x == null || 'xPercent' in f) return f
+      furniture.map((f): PlacedFurniture => {
+        if (!("x" in f) || typeof (f as LegacyItem).x !== "number" || "xPercent" in f) return f
+        const leg = f as LegacyItem
         const rw = layoutRect.roomWidth
         const rh = layoutRect.roomHeight
-        const w = (o.width ?? 20) * (o.scaleX ?? 1) * layoutRect.scale
-        const h = (o.height ?? 20) * (o.scaleY ?? 1) * layoutRect.scale
+        const w = (leg.width ?? 20) * (leg.scaleX ?? 1) * layoutRect.scale
+        const h = (leg.height ?? 20) * (leg.scaleY ?? 1) * layoutRect.scale
         return {
-          id: f.id,
-          itemId: f.itemId,
-          label: f.label,
-          emoji: f.emoji,
-          element: f.element,
-          rotation: f.rotation,
-          xPercent: ((o.x - layoutRect.offsetX) / rw) * 100,
-          yPercent: ((o.y - layoutRect.offsetY) / rh) * 100,
+          id: leg.id,
+          itemId: leg.itemId,
+          label: leg.label,
+          emoji: leg.emoji,
+          element: leg.element,
+          rotation: leg.rotation,
+          xPercent: ((leg.x - layoutRect.offsetX) / rw) * 100,
+          yPercent: ((leg.y - layoutRect.offsetY) / rh) * 100,
           widthPercent: (w / rw) * 100,
           heightPercent: (h / rh) * 100,
-        } as PlacedFurniture
-        })
+        }
+      })
     )
   }, [layoutRect]) // eslint-disable-line react-hooks/exhaustive-deps -- run once when rect available
 

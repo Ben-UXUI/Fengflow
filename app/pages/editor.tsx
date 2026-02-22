@@ -80,8 +80,12 @@ export default function EditorPage() {
     }
     const scaledW = rect.roomWidth * rect.scale
     const scaledH = rect.roomHeight * rect.scale
-    const cx = rect.offsetX + scaledW / 2
-    const cy = rect.offsetY + scaledH / 2
+    const wPx = item.w * rect.scale
+    const hPx = item.h * rect.scale
+    const widthPercent = (wPx / scaledW) * 100
+    const heightPercent = (hPx / scaledH) * 100
+    const xPercent = 50 - widthPercent / 2
+    const yPercent = 50 - heightPercent / 2
     const id = `furniture-${Date.now()}`
     const newItem: PlacedFurniture = {
       id,
@@ -89,10 +93,10 @@ export default function EditorPage() {
       label: item.label,
       emoji: item.emoji,
       element: item.element,
-      x: cx - item.w / 2,
-      y: cy - item.h / 2,
-      width: item.w,
-      height: item.h,
+      xPercent,
+      yPercent,
+      widthPercent,
+      heightPercent,
     }
     setFurniture((prev) => [...prev, newItem])
     setLastAddedId(id)
@@ -115,15 +119,6 @@ export default function EditorPage() {
   const serializeLayout = (): LayoutData => {
     const roomWidthMetres = template.width / 100
     const roomHeightMetres = template.height / 100
-    const rect = layoutRect ?? {
-      offsetX: 80,
-      offsetY: 60,
-      roomWidth: template.width,
-      roomHeight: template.height,
-      scale: 1,
-    }
-    const scaledW = rect.roomWidth * rect.scale
-    const scaledH = rect.roomHeight * rect.scale
 
     return {
       room: {
@@ -136,19 +131,16 @@ export default function EditorPage() {
         wall: doorPosition.wall,
         positionPercent: doorPosition.offset,
       },
-      furniture: furniture.map((item) => {
-        const relativeX = item.x - rect.offsetX
-        const relativeY = item.y - rect.offsetY
-        return {
-          id: item.id,
-          label: item.label,
-          element: item.element,
-          xPercent: (relativeX / scaledW) * 100,
-          yPercent: (relativeY / scaledH) * 100,
-          widthPercent: (item.width / scaledW) * 100,
-          heightPercent: (item.height / scaledH) * 100,
-        }
-      }),
+      furniture: furniture.map((item) => ({
+        id: item.id,
+        label: item.label,
+        element: item.element,
+        xPercent: item.xPercent,
+        yPercent: item.yPercent,
+        widthPercent: item.widthPercent,
+        heightPercent: item.heightPercent,
+        rotation: item.rotation ?? 0,
+      })),
     }
   }
 
