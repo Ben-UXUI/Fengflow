@@ -29,10 +29,10 @@ export default function WorkingEditor() {
       label: item.label,
       emoji: item.emoji,
       element: item.element,
-      x: 100,
-      y: 100,
-      width: item.w,
-      height: item.h,
+      xPercent: 40,
+      yPercent: 40,
+      widthPercent: 15,
+      heightPercent: 15,
     }
     setFurniture([...furniture, newItem])
     console.log("Furniture added:", newItem)

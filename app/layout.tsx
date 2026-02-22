@@ -27,8 +27,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={`${cormorant.variable} ${dmSans.variable}`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${cormorant.variable} ${dmSans.variable} antialiased`} suppressHydrationWarning>
         <AppNav />
         <main className="min-h-screen pt-16">{children}</main>
         <Toaster />

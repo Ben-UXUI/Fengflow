@@ -2,9 +2,11 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest } from 'next/server'
 import { FENGSHUI_SYSTEM_PROMPT } from '@/lib/feng-shui-prompt'
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
+function getClient(): Anthropic {
+  const key = process.env.ANTHROPIC_API_KEY
+  if (!key) throw new Error('ANTHROPIC_API_KEY is not configured')
+  return new Anthropic({ apiKey: key })
+}
 
 function repairTruncatedJson(raw: string): unknown {
   const stack: ('{' | '[')[] = []
@@ -74,11 +76,13 @@ export async function POST(request: NextRequest) {
       return new Response(JSON.stringify({ error: 'No layout data provided' }), { status: 400 })
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    const encoder = new TextEncoder()
+    let client: Anthropic
+    try {
+      client = getClient()
+    } catch {
       return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY is not configured' }), { status: 500 })
     }
-
-    const encoder = new TextEncoder()
 
     const stream = new ReadableStream({
       async start(controller) {

@@ -98,17 +98,33 @@ function doorClosedLine(wall: Wall, cx: number, cy: number, dw: number): number[
   }
 }
 
-// Convert room-relative percent to canvas pixel position/size
+// Legacy shape (pixel-based) from sessionStorage or pre-migration
+type LegacyFurniture = PlacedFurniture & { x: number; y: number; width?: number; height?: number; scaleX?: number; scaleY?: number }
+
+// Convert room-relative percent to canvas pixel position/size; support legacy pixel-based items
 function itemToPixels(
-  item: PlacedFurniture,
-  offsetX: number, offsetY: number, roomW: number, roomH: number
+  item: PlacedFurniture | LegacyFurniture,
+  offsetX: number, offsetY: number, roomW: number, roomH: number,
+  scale?: number
 ) {
-  return {
-    x: offsetX + (item.xPercent / 100) * roomW,
-    y: offsetY + (item.yPercent / 100) * roomH,
-    w: (item.widthPercent / 100) * roomW,
-    h: (item.heightPercent / 100) * roomH,
+  if ("xPercent" in item && typeof item.xPercent === "number") {
+    return {
+      x: offsetX + (item.xPercent / 100) * roomW,
+      y: offsetY + (item.yPercent / 100) * roomH,
+      w: (item.widthPercent / 100) * roomW,
+      h: (item.heightPercent / 100) * roomH,
+    }
   }
+  if ("x" in item && typeof item.x === "number" && scale != null) {
+    const leg = item as LegacyFurniture
+    return {
+      x: leg.x,
+      y: leg.y,
+      w: (leg.width ?? 20) * (leg.scaleX ?? 1) * scale,
+      h: (leg.height ?? 20) * (leg.scaleY ?? 1) * scale,
+    }
+  }
+  return { x: offsetX + roomW / 2 - 20, y: offsetY + roomH / 2 - 20, w: 40, h: 40 }
 }
 
 // Get the Bagua zone for a point (pixel coords) based on fixed layout
@@ -299,7 +315,7 @@ export function RoomCanvas({
   const computeSnapLines = useCallback((draggedId: string, dragX: number, dragY: number) => {
     const item = furniture.find(f => f.id === draggedId)
     if (!item) return
-    const dp = itemToPixels(item, offsetX, offsetY, roomW, roomH)
+    const dp = itemToPixels(item, offsetX, offsetY, roomW, roomH, scale)
     const dw = dp.w, dh = dp.h
     const dEH = [dragY, dragY + dh/2, dragY + dh]
     const dEV = [dragX, dragX + dw/2, dragX + dw]
@@ -307,7 +323,7 @@ export function RoomCanvas({
     const vLines: number[] = []
     for (const other of furniture) {
       if (other.id === draggedId) continue
-      const op = itemToPixels(other, offsetX, offsetY, roomW, roomH)
+      const op = itemToPixels(other, offsetX, offsetY, roomW, roomH, scale)
       const iEH = [op.y, op.y + op.h/2, op.y + op.h]
       const iEV = [op.x, op.x + op.w/2, op.x + op.w]
       for (const de of dEH) for (const ie of iEH) if (Math.abs(de - ie) < SNAP_THRESH) hLines.push(ie)
@@ -316,7 +332,7 @@ export function RoomCanvas({
     for (const de of dEH) for (const re of [offsetY, offsetY+roomH/2, offsetY+roomH]) if (Math.abs(de - re) < SNAP_THRESH) hLines.push(re)
     for (const de of dEV) for (const re of [offsetX, offsetX+roomW/2, offsetX+roomW]) if (Math.abs(de - re) < SNAP_THRESH) vLines.push(re)
     setSnapLines({ h: [...new Set(hLines)], v: [...new Set(vLines)] })
-  }, [furniture, offsetX, offsetY, roomW, roomH])
+  }, [furniture, offsetX, offsetY, roomW, roomH, scale])
 
   // ── Drag end ──────────────────────────────────────────────────────────────
   const handleDragEnd = useCallback((e: Konva.KonvaEventObject<DragEvent>, id: string) => {
@@ -326,16 +342,19 @@ export function RoomCanvas({
     let y = Math.round(node.y() / 20) * 20
     const item = furniture.find(f => f.id === id)
     if (!item) return
-    const pw = (item.widthPercent / 100) * roomW
-    const ph = (item.heightPercent / 100) * roomH
-    const cx = Math.max(offsetX, Math.min(x, offsetX + roomW - pw))
-    const cy = Math.max(offsetY, Math.min(y, offsetY + roomH - ph))
+    const p = itemToPixels(item, offsetX, offsetY, roomW, roomH, scale)
+    const cx = Math.max(offsetX, Math.min(x, offsetX + roomW - p.w))
+    const cy = Math.max(offsetY, Math.min(y, offsetY + roomH - p.h))
     node.position({ x: cx, y: cy })
     const xPercent = ((cx - offsetX) / roomW) * 100
     const yPercent = ((cy - offsetY) / roomH) * 100
-    onFurnitureUpdate(furniture.map(f => f.id === id ? { ...f, xPercent, yPercent } : f))
+    const widthPercent = "widthPercent" in item && typeof item.widthPercent === "number" ? item.widthPercent : (p.w / roomW) * 100
+    const heightPercent = "heightPercent" in item && typeof item.heightPercent === "number" ? item.heightPercent : (p.h / roomH) * 100
+    onFurnitureUpdate(furniture.map(f => f.id === id
+      ? { id: f.id, itemId: f.itemId, label: f.label, emoji: f.emoji, element: f.element, rotation: f.rotation ?? 0, xPercent, yPercent, widthPercent, heightPercent }
+      : f))
     updateToolbar(node)
-  }, [furniture, offsetX, offsetY, roomW, roomH, onFurnitureUpdate, updateToolbar])
+  }, [furniture, offsetX, offsetY, roomW, roomH, scale, onFurnitureUpdate, updateToolbar])
 
   // ── Transform end — absorb scale into widthPercent/heightPercent
   const handleTransformEnd = useCallback((e: Konva.KonvaEventObject<Event>, id: string) => {
@@ -344,10 +363,9 @@ export function RoomCanvas({
     if (!item) return
     const sx = node.scaleX()
     const sy = node.scaleY()
-    const pixelW = (item.widthPercent / 100) * roomW
-    const pixelH = (item.heightPercent / 100) * roomH
-    const newPixelW = Math.max(20, pixelW * Math.abs(sx))
-    const newPixelH = Math.max(20, pixelH * Math.abs(sy))
+    const pix = itemToPixels(item, offsetX, offsetY, roomW, roomH, scale)
+    const newPixelW = Math.max(20, pix.w * Math.abs(sx))
+    const newPixelH = Math.max(20, pix.h * Math.abs(sy))
     const px = node.x()
     const py = node.y()
     node.scaleX(1); node.scaleY(1)
@@ -413,26 +431,35 @@ export function RoomCanvas({
     if (!selectedFurnitureId) return
     onFurnitureUpdate(furniture.map(f => {
       if (f.id !== selectedFurnitureId) return f
+      const p = itemToPixels(f, offsetX, offsetY, roomW, roomH, scale)
+      const curWP = "widthPercent" in f && typeof f.widthPercent === "number" ? f.widthPercent : (p.w / roomW) * 100
+      const curHP = "heightPercent" in f && typeof f.heightPercent === "number" ? f.heightPercent : (p.h / roomH) * 100
+      const curXP = "xPercent" in f && typeof f.xPercent === "number" ? f.xPercent : ((p.x - offsetX) / roomW) * 100
+      const curYP = "yPercent" in f && typeof f.yPercent === "number" ? f.yPercent : ((p.y - offsetY) / roomH) * 100
       const factor = Math.max(0.5, Math.min(2.0, 1 + delta))
-      let wP = f.widthPercent * factor
-      let hP = f.heightPercent * factor
+      let wP = curWP * factor
+      let hP = curHP * factor
       wP = Math.max(2, Math.min(50, wP))
       hP = Math.max(2, Math.min(50, hP))
-      const xP = Math.max(0, Math.min(100 - wP, f.xPercent))
-      const yP = Math.max(0, Math.min(100 - hP, f.yPercent))
-      return { ...f, widthPercent: wP, heightPercent: hP, xPercent: xP, yPercent: yP }
+      const xP = Math.max(0, Math.min(100 - wP, curXP))
+      const yP = Math.max(0, Math.min(100 - hP, curYP))
+      return { id: f.id, itemId: f.itemId, label: f.label, emoji: f.emoji, element: f.element, rotation: f.rotation ?? 0, xPercent: xP, yPercent: yP, widthPercent: wP, heightPercent: hP }
     }))
-  }, [selectedFurnitureId, furniture, onFurnitureUpdate])
+  }, [selectedFurnitureId, furniture, offsetX, offsetY, roomW, roomH, scale, onFurnitureUpdate])
 
   const duplicateItem = useCallback((id: string) => {
     const src = furniture.find(f => f.id === id); if (!src) return
+    const p = itemToPixels(src, offsetX, offsetY, roomW, roomH, scale)
+    const srcWP = "widthPercent" in src && typeof src.widthPercent === "number" ? src.widthPercent : (p.w / roomW) * 100
+    const srcHP = "heightPercent" in src && typeof src.heightPercent === "number" ? src.heightPercent : (p.h / roomH) * 100
+    const srcXP = "xPercent" in src && typeof src.xPercent === "number" ? src.xPercent : ((p.x - offsetX) / roomW) * 100
+    const srcYP = "yPercent" in src && typeof src.yPercent === "number" ? src.yPercent : ((p.y - offsetY) / roomH) * 100
     const delta = 4
-    let xP = src.xPercent + delta
-    let yP = src.yPercent + delta
-    xP = Math.max(0, Math.min(100 - src.widthPercent, xP))
-    yP = Math.max(0, Math.min(100 - src.heightPercent, yP))
-    onFurnitureUpdate([...furniture, { ...src, id: `furniture-${Date.now()}`, xPercent: xP, yPercent: yP }])
-  }, [furniture, onFurnitureUpdate])
+    let xP = Math.max(0, Math.min(100 - srcWP, srcXP + delta))
+    let yP = Math.max(0, Math.min(100 - srcHP, srcYP + delta))
+    const dup: PlacedFurniture = { ...src, id: `furniture-${Date.now()}`, xPercent: xP, yPercent: yP, widthPercent: srcWP, heightPercent: srcHP }
+    onFurnitureUpdate([...furniture, dup])
+  }, [furniture, offsetX, offsetY, roomW, roomH, scale, onFurnitureUpdate])
 
   const moveToFront = useCallback((id: string) => {
     const idx = furniture.findIndex(f => f.id === id); if (idx < 0) return
@@ -447,9 +474,12 @@ export function RoomCanvas({
   const scalePercent = useMemo(() => {
     const sel = furniture.find(f => f.id === selectedFurnitureId)
     if (!sel) return 100
-    const avg = (sel.widthPercent + sel.heightPercent) / 2
+    const p = itemToPixels(sel, offsetX, offsetY, roomW, roomH, scale)
+    const wP = "widthPercent" in sel && typeof sel.widthPercent === "number" ? sel.widthPercent : (p.w / roomW) * 100
+    const hP = "heightPercent" in sel && typeof sel.heightPercent === "number" ? sel.heightPercent : (p.h / roomH) * 100
+    const avg = (wP + hP) / 2
     return Math.round((avg / 10) * 100)
-  }, [furniture, selectedFurnitureId])
+  }, [furniture, selectedFurnitureId, offsetX, offsetY, roomW, roomH, scale])
 
   // ── Double-click rename ───────────────────────────────────────────────────
   const handleDblClick = useCallback((item: PlacedFurniture) => {
@@ -566,9 +596,9 @@ export function RoomCanvas({
   const renamePos = useMemo(() => {
     if (!renamingId) return null
     const item = furniture.find(f => f.id === renamingId); if (!item) return null
-    const p = itemToPixels(item, offsetX, offsetY, roomW, roomH)
+    const p = itemToPixels(item, offsetX, offsetY, roomW, roomH, scale)
     return toCSS({ x: p.x + p.w/2, y: p.y + p.h*0.78 })
-  }, [renamingId, furniture, offsetX, offsetY, roomW, roomH, toCSS])
+  }, [renamingId, furniture, offsetX, offsetY, roomW, roomH, scale, toCSS])
 
   // Zoom-adjusted toolbar CSS positions
   const toolbarCSSPos    = toolbarPos       ? toCSS(toolbarPos)       : null
@@ -837,7 +867,7 @@ export function RoomCanvas({
 
               {/* ── Furniture items ───────────────────────────────────── */}
               {furniture.map((item) => {
-                const p = itemToPixels(item, offsetX, offsetY, roomW, roomH)
+                const p = itemToPixels(item, offsetX, offsetY, roomW, roomH, scale)
                 const isSelected  = item.id === selectedFurnitureId
                 const zone        = getZone(p.x, p.y, offsetX, offsetY, roomW, roomH)
                 const borderColor = zone ? FIXED_ZONE[zone].color : "#D0D0D0"

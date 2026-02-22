@@ -56,7 +56,7 @@ export function MasterCard({ master, index = 0 }: MasterCardProps) {
         transition={{ duration: 0.5, delay: index * 0.12, ease: "easeOut" }}
       >
         <div
-          className="flex flex-col h-full bg-white rounded-2xl p-6 cursor-pointer transition-all duration-[250ms] ease-in-out"
+          className="flex flex-col h-full bg-white rounded-2xl p-6 cursor-pointer transition-all duration-300 ease-in-out"
           style={{
             border: "1px solid #E5E5E5",
             boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
