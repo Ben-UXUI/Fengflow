@@ -239,18 +239,21 @@ export default function EditorPage() {
 
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col bg-[var(--bg-primary)] overflow-hidden">
-      {/* Top bar */}
-      <div className="flex-shrink-0 h-[72px] px-4 flex items-center justify-between bg-white border-b border-[var(--border-dark)]">
+      {/* Top bar — extra height so Analyse button + sublabel have room */}
+      <div className="flex-shrink-0 min-h-[88px] py-3 px-4 flex items-center justify-between bg-white border-b border-[var(--border-dark)]">
         <p className="font-sans text-sm font-medium text-[var(--text-muted)]">Editor</p>
-        <AnimatedAnalyseButton
-          label="Analyse with Feng Shui AI"
-          icon="sparkles"
-          size="sm"
-          onClick={handleAnalyze}
-          disabled={isAnalyzing}
-          isLoading={isAnalyzing}
-          showSubLabel
-        />
+        <div className="flex flex-col items-center justify-center py-1">
+          <AnimatedAnalyseButton
+            label="Analyse with Feng Shui AI"
+            icon="sparkles"
+            size="sm"
+            onClick={handleAnalyze}
+            disabled={isAnalyzing}
+            isLoading={isAnalyzing}
+            showSubLabel
+          />
+          <span className="block h-2" aria-hidden />
+        </div>
       </div>
 
       {/* Mobile */}
